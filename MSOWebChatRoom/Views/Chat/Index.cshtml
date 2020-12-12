@@ -1,0 +1,208 @@
+﻿@model MSOWebChatRoom.Models.ChatViewModel
+@using Microsoft.AspNetCore.Identity
+@using MSOWebChatRoom.Models
+
+@inject UserManager<ChatUser> UserManager
+
+@{
+    ViewData["Title"] = "Chat Room";
+}
+<!--Script references. -->
+@section Scripts {
+    <!--Reference the SignalR library. -->
+    <script src="~/js/signalr/dist/browser/signalr.js"></script>
+    <script src="~/js/emojis.js" type="text/javascript" asp-append-version="true"></script>
+    <script src="~/js/chat.js" type="text/javascript" asp-append-version="true"></script>
+    @*<script src="~/js/chat/chat.js" type="text/javascript" asp-append-version="true"></script>*@
+
+}
+<!--Stylesheet references. -->
+@section Stylesheet {
+    <link rel="stylesheet" href="~/css/chat.css" />
+}
+
+
+<div id="chatroomcontent">
+    <div class="text-center">
+        <h1 class="display-4">Chat Room</h1>
+    </div>
+    <div class="row rounded-lg overflow-hidden">
+        <input id="currentUserName" type="hidden" value="@Context.User.Identity.Name" />
+        <div class="col-5 px-0">
+            <div class="bg-white">
+                <div class="box" id="notification">
+                    <div class="bg-gray px-4 py-2 bg-light">
+                        <div></div>
+                        <div class="bg-gray-left">
+                            <i class="fas fa-bell" aria-hidden="true" data-count="0"></i>
+                            <div class="notificon hidden">
+                                <i class="fas fa-envelope" aria-hidden="true"></i>
+                            </div>
+                            <div class="notifmessage hidden">
+                                <div class="notifmessage-content shadow-sm">
+                                    <span class="msg">
+                                        <span>No Notifictaions</span>
+                                    </span>
+                                    <span class="msgdate" id="notifdate"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="box b-user">
+                    <div class="bg-gray px-4 py-2 bg-light">
+                        <div class="bg-gray-left">
+                            <i class="fas fa-comments"></i>
+                            <p class="h5 mb-0 py-1">Contacts (@Model.UsersList.Count)</p>
+                        </div>
+                    </div>
+                    <div class="box-content">
+                        <div class="contacts">
+                            <ul id="chatUsers" class="list-group rounded-0" data-count="@Model.UsersList.Count">
+                                @{
+                                    int i = 1;
+                                    foreach (var user in Model.UsersList)
+                                    {
+                                        <li class="user__item" id="contact-@i" data-contact-id="@user.Id" data-contact-name="@user.UserName">
+                                            <div class="avatar">
+                                                <img src="@Url.Content("~/images/default-avatar.png")" alt="connect-avatar">
+                                            </div>
+                                            <span>@user.UserName</span>
+                                            <div class="status" data-status="disconnected">
+                                            </div>
+                                        </li>
+                                        i++;
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="box b-group">
+                    <div class="bg-gray px-4 py-2 bg-light">
+                        <div class="bg-gray-left">
+                            <i class="fas fa-users"></i>
+                            <p class="h5 mb-0 py-1">Groups (@Model.GroupsList.Count)</p>
+                        </div>
+                        <div>
+                            <button id="btnAddGroup" type="button" class="btn btn-primary btn-sm btn-add" title="Add new group">New Group</button>
+                        </div>
+                    </div>
+                    <div class="box-content">
+                        <div class="groups">
+                            <ul id="chatGroups" class="list-group rounded-0" data-count="@Model.GroupsList.Count">
+                                @foreach (var groupe in @Model.GroupsList)
+                                {
+                                    <li class="user__item group-@groupe.GroupID" data-group-id="@groupe.GroupID" data-group-name="@groupe.GroupName">
+                                        <div class="avatar">
+                                            <img src="@Url.Content("~/images/default-group-avatar.png")" alt="group-avatar">
+                                        </div>
+                                        <span>@groupe.GroupName</span>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div id="groupoverlay" class="overlay shadow">
+                    <div class="overlaybody">
+                        <form method="post" asp-controller="Chat" asp-action="CreateGroup">
+                            <input type="hidden" name="CreatedBy" asp-for="@Model.NewGroup.CreatedBy" value="@Context.User.Identity.Name" />
+                            <div class="groupcontent">
+                                <div class="grouphead">
+                                    <h2>Add New Group</h2>
+                                </div>
+                                <div class="groupinfo">
+                                    <div class="groupinput grp">
+                                        <label class="labelgrp" for="groupNameInput"> Group Name</label>
+                                        <input id="groupNameInput" class="form-control" type="text" name="GroupName" asp-for="@Model.NewGroup.GroupName" autocomplete="off" />
+                                    </div>
+                                    <div class="groupuser grp">
+                                        <div class="groupuser-container">
+                                            <label class="labelgrp">Add Users</label>
+                                            <div class="userError hidden">
+                                                <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                                                <span>User(s) not selected</span>
+                                            </div>
+                                            <div class="form-check-users">
+                                                <div class="form-check-users-container">
+                                                    @if (Model.UsersList != null)
+                                                    {
+                                                        for (var j = 0; j < Model.UsersGroup.Count; j++)
+                                                        {
+                                                            <div class="form-check">
+                                                                <input type="checkbox" class="form-check-input" id="use_@j" value="@Model.UsersGroup[j].Username">
+                                                                <label class="form-check-label" for="use_@j">@Model.UsersGroup[j].Username</label>
+                                                                @Html.HiddenFor(x => x.UsersGroup[j].Username, new { @id = "Ugrp_" + j })
+                                                                @Html.HiddenFor(x => x.UsersGroup[j].Is_selected, new { @id = "Sugrp_" + j })
+
+                                                            </div>
+                                                        }
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="groupfooter">
+                                    <button id="btnCreate" type="submit" class="btn btn-primary btn-sm">Create</button>
+                                    <button id="btnCancel" type="button" class="btn btn-secondary btn-sm">Cancel</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <div class="col-7 px-0" id="chat">
+            <div class="bg-white">
+                <div id="chat-contact" class="px-4 py-2 bg-light hidden">
+                    <div class="bg-light-left">
+                        <div class="avatar">
+                            <img src="@Url.Content("~/images/default-avatar.png")" alt="receiver-avatar">
+                        </div>
+                        <span id="receivername" class="receivername"></span>
+                        <input id="chat-receiver" type="hidden" />
+                        <input id="chat-receiver-type" type="hidden" />
+                        <div class="info hidden">
+                            <i class="fas fa-info-circle" aria-hidden="true"></i>
+                            <div class="info-users shadow-sm hidden">
+                                <ul>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button type="button" class="close" aria-label="Close" title="Close chat" id="btnCloseChat">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+
+                </div>
+                <div id="chat-message-welcom" class="px-4 py-5">
+
+                </div>
+                <div id="chat-message" class="px-4 py-5 chat-box hidden" data-status="closed">
+                </div>
+                <div id="chat-send" class="input-group hidden">
+                    <textarea class="form-control" rows="2" id="messageInput" name="text" placeholder="Type your message here..."></textarea>
+                    <div id="emojisTrigger" class="emojisTrigger">
+                        <span>&#128512;</span>
+                    </div>
+                    <div class="emojisContainer">
+                        <button type="button" class="close" aria-label="Close" title="Close" id="btnCloseEmojis">
+                            <span aria-hidden="true">×</span>
+                        </button>
+                        <div class="emojisContainerContent">
+                        </div>
+                    </div>
+                    <div class="input-group-append">
+                        <button id="sendButton" type="button" class="btn btn-link" title="Send"><i class="fa fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
