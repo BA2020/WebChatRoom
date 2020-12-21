@@ -3,7 +3,8 @@ $(document).ready(function () {
     /**** VARIABLES *****/
     var connection = null;
     const currentUser = $("#currentUserName").val();
-    const conversationBody = $("#chat-message");
+    const conversationBody = $("#chat-message-private");
+    const conversationGroupBody = $("#chat-message-group");
     var fullDate = new Date();
 
     /// define template msg
@@ -44,7 +45,7 @@ $(document).ready(function () {
      * @param {any} contact
      * @param {any} url
      */    
-    function getChat(contact, url) {
+    function getChat(contact, url,source) {
         $.ajax({
             data: { contact: contact },
             url: url,
@@ -57,7 +58,7 @@ $(document).ready(function () {
                 }
                 else {
                     var chat_data = response;
-                    loadChat(chat_data);
+                    loadChat(chat_data,source);
                 }
 
             },
@@ -74,7 +75,7 @@ $(document).ready(function () {
      * load chat data into view
      * @param {any} chat_data
      */
-    function loadChat(chat_data) {
+    function loadChat(chat_data,source) {
         /// new conversation, display welcom msg
         if (chat_data.length ==0) {
             var contact = $("#chat-receiver").val();
@@ -88,7 +89,7 @@ $(document).ready(function () {
         /// display history conversation
         else {
             chat_data.forEach(function (data) {
-                displayMessage(data, "loadmessage");
+                displayMessage(data, source);
             });
         }
     }
@@ -97,7 +98,8 @@ $(document).ready(function () {
      * display conversation in the view
      * @param {any} message_obj
      */
-    function displayMessage(message_obj,source) {
+    function displayMessage(message_obj, source) {
+        var receiverType = $("#chat-receiver-type").val();
         const msg_id = message_obj.messageId;
         const msg_body = message_obj.messageBody;
         const msg_sender = message_obj.senderName;
@@ -122,17 +124,26 @@ $(document).ready(function () {
             }
         }
         else {
-            if (source == "loadmessage") {
+            if (source == "privatemessage") {
                 template.removeClass('ml-auto');
                 template.find('.checkmark').addClass('hidden');
             }
         }
 
-        conversationBody.append(template);
+        if (source == "privatemessage"){
+            conversationBody.append(template);
 
-        conversationBody.stop().animate({
-            scrollTop: $('#chat-message')[0].scrollHeight
-        });
+            conversationBody.stop().animate({
+                scrollTop: $('#chat-message-private')[0].scrollHeight
+            });
+        } else {
+            conversationGroupBody.append(template);
+
+            conversationGroupBody.stop().animate({
+                scrollTop: $('#chat-message-group')[0].scrollHeight
+            });
+        }
+        
     }
 
     /**
@@ -162,6 +173,7 @@ $(document).ready(function () {
         e.preventDefault();
         $("#chat-message-welcom").addClass("hidden");
         conversationBody.removeClass("hidden");
+        conversationGroupBody.addClass("hidden");
 
         removeActiveClass($("#chatUsers li.active"));
         removeActiveClass($("#chatGroups li.active"));
@@ -183,7 +195,7 @@ $(document).ready(function () {
         conversationBody.html("");
 
         // get messages conversation
-        getChat(username, "/Chat/ConversationWithContact/");
+        getChat(username, "/Chat/ConversationWithContact/", "privatemessage");
     });
 
     
@@ -530,7 +542,8 @@ $(document).ready(function () {
         $(document).on("click", "#chatGroups li.user__item", function () {
             $(".info-users").addClass("hidden");
             $("#chat-message-welcom").addClass("hidden");
-            conversationBody.removeClass("hidden");
+            conversationBody.addClass("hidden");
+            conversationGroupBody.removeClass("hidden");
 
             // remove the previous selected group/user
             removeActiveClass($("#chatUsers li.active"));
@@ -550,13 +563,13 @@ $(document).ready(function () {
             conversationBody.attr("data-status","open");
             $("#chat-contact").removeClass("hidden");
             $("#chat-send").removeClass("hidden");
-            $("#chat-message").html("");
+            conversationGroupBody.html("");
 
             // invoke signalr method AddTogroup which add users connections to the given Group
             connection.invoke("AddToGroup", groupname);
 
             // get history's group
-            getChat(groupname, "/Chat/ConversationWithGroup/");
+            getChat(groupname, "/Chat/ConversationWithGroup/","groupmessage");
         });
     }
 });

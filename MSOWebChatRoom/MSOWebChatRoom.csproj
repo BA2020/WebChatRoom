@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="wwwroot\js\chat\" />
+    <Folder Include="wwwroot\ts\" />
   </ItemGroup>
 
 </Project>
